@@ -16,7 +16,7 @@ namespace capacity_planning
 		~part();
 
 		inline short get_batch_runtime_minutes() { return _batch_runtime_minutes; }
-		inline float get_batch_size() { return _batch_size; }
+		inline short get_batch_size() { return _batch_size; }
 		inline float get_unit_size() { return _unit_size; }
 		inline int get_id() { return _id; }
 
@@ -24,7 +24,7 @@ namespace capacity_planning
 	private:
 		int _id;
 		float _unit_size;
-		float _batch_size;
+		short _batch_size;
 		short _batch_runtime_minutes;
 		std::vector<unsigned char> _possible_machines;
 	};

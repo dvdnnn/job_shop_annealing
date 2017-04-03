@@ -1,91 +1,16 @@
 #include "factory_utility.h"
 
+#include "timer.h"
+
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-#include "timer.h"
 
 
 using namespace std;
 using namespace capacity_planning;
 
-//void empty_schedule(vector<resource> &resources)
-//{
-//	for (size_t i = 0; i < resources.size(); ++i)
-//	{
-//		resources[i].units.clear();
-//	}
-//}
-
-//void randomize_schedule(vector<resource> &resources, vector<unit> &units, mt19937_64 &mt)
-//{
-//	//empty_schedule(resources);
-//
-//	vector<reference_wrapper<unit>> units_wrapper(units.begin(), units.end());
-//
-//	std::shuffle(units_wrapper.begin(), units_wrapper.end(), mt);
-//
-//	uniform_int_distribution<int> machine_dis(0, NUMBER_OF_MACHINES - 1);
-//	for (size_t i = 0; i < units.size(); ++i)
-//	{
-//		resources[units_wrapper[i].get().order.part.possible_machines[mt() % units_wrapper[i].get().order.part.possible_machines.size()]].units.push_back(&units_wrapper[i].get());
-//	}
-//}
-
-
-
-//int cost(vector<resource> &resources)
-//{
-//	unsigned int cost = 0;
-//	for (resource m : resources)
-//	{
-//		short time_used = 0;
-//		float alloted_available_batch = 0;
-//		short prev_part_id = (*m.units[0]).id;
-//		for (unit *u : m.units)
-//		{
-//			if (prev_part_id == (*u).order.part.id 
-//				&& alloted_available_batch > 0)
-//			{
-//				alloted_available_batch -= (*u).order.part.unit_size;
-//			}
-//			else
-//			{
-//				time_used += (*u).order.part.batch_runtime_minutes;
-//				alloted_available_batch = (*u).order.part.batch_size - (*u).order.part.unit_size;
-//			}
-//			short temp_cost = (time_used - (*u).order.due_date);
-//			cost += (temp_cost > 0 ? temp_cost : 0);
-//		}
-//	}
-//	return cost;
-//}
-
-//void anneal(vector<machine> &solution, vector<unit> &units, mt19937_64 &mt)
-//{
-//	int old_cost = cost(solution);
-//	float temperature = 1.0f;
-//	float temperature_min = 0.00001f;
-//	float alpha = 0.9f;
-//
-//	uniform_real_distribution<float> dis(0, 1);
-//	while (temperature > temperature_min)
-//	{
-//		for (short i = 0; i < 100; ++i)
-//		{
-//			vector<machine> new_solution = generate_machines(mt);
-//			randomize_schedule(new_solution, units, mt);
-//			int new_cost = cost(new_solution);
-//			if (new_cost < old_cost || std::exp((old_cost - new_cost) / temperature) > dis(mt))
-//			{
-//				solution = new_solution;
-//				old_cost = new_cost;
-//				cout << old_cost << endl;
-//			}
-//		}
-//		temperature *= alpha;
-//	}
-//}
+#define SETUP_TIME 30
 
 long double ef(vector<int> &resource_ids, unordered_map<int, resource> &resources)
 {
@@ -101,27 +26,27 @@ long double ef(vector<int> &resource_ids, unordered_map<int, resource> &resource
 			if (prev_part_id == u->get_part()->get_id()
 				&& alloted_available_batch > 0)
 			{
-				alloted_available_batch -= u->get_part()->get_unit_size();
+				alloted_available_batch -= 1;
 			}
 			else
 			{
 				time_used += u->get_part()->get_batch_runtime_minutes();
-				alloted_available_batch = u->get_part()->get_batch_size() - u->get_part()->get_unit_size();
+				if (u->get_part()->get_id() != prev_part_id)
+				{
+					time_used += SETUP_TIME;
+				}
+				alloted_available_batch = u->get_part()->get_batch_size();
 			}
 			short temp_cost = (time_used - u->get_due_date());
 			cost += (temp_cost > 0 ? temp_cost : 0);
+			prev_part_id = u->get_part()->get_id();
 		}
 	}
-	return std::abs((long)((cost - 10)*(cost + 20)*(cost - 30)));
+	return (long double)cost / 60 / 24;
 };
 
-auto tf = [](long double k)
-{
-	return std::exp(-20 * k);
-};
-
-unordered_map<int, resource> randomize(vector<int> unit_ids, unordered_map<int, unit> &units,
-			   vector<int> resource_ids, mt19937_64 &mt)
+auto random_function = [](vector<int> unit_ids, unordered_map<int, unit> &units,
+			   vector<int> resource_ids, unordered_map<int, resource> &resources, mt19937_64 &mt)
 {
 	unordered_map<int, resource> new_resources;
 	for (int r : resource_ids)
@@ -135,31 +60,72 @@ unordered_map<int, resource> randomize(vector<int> unit_ids, unordered_map<int, 
 	for (size_t i = 0; i < unit_ids.size(); ++i)
 	{
 		uniform_int_distribution<int> resource_dis(0, 
-			units[unit_ids[i]].get_part()->get_possible_machines().size() - 1);
+			(int)(units[unit_ids[i]].get_part()->get_possible_machines().size() - 1));
 
 		new_resources[resource_ids[resource_dis(mt)]].push_back(&units[unit_ids[i]]);
 	}
 
 	return new_resources;
-}
+};
 
+auto next_function = [](vector<int> unit_ids, unordered_map<int, unit> &units,
+	vector<int> resource_ids, unordered_map<int, resource> resources, mt19937_64 &mt)
+{
+	uniform_int_distribution<unsigned char> act_dis(0, 1);
+	uniform_int_distribution<int> resource_dis(0, (int)(resource_ids.size() - 1));
+	auto res_1 = resources[resource_ids[resource_dis(mt)]];
+	auto res_2 = resources[resource_ids[resource_dis(mt)]];
+	uniform_int_distribution<unsigned char> unit_1_dis(0, (int)(res_1.units.size() - 1));
+	uniform_int_distribution<unsigned char> unit_2_dis(0, (int)(res_2.units.size() - 1));
+	if (act_dis(mt) == 0)
+	{
+		// swap random units
+		auto unit_1_id = unit_1_dis(mt);
+		auto unit_2_id = unit_2_dis(mt);
+		auto temp = move(res_1.units[unit_1_id]);
+		res_1.units[unit_1_id] = move(res_2.units[unit_2_id]);
+		res_2.units[unit_2_id] = move(temp);
+	}
+	else
+	{
+		// move random unit to random machine
+		res_2.push_back(move(res_1.units[unit_1_dis(mt)]));
+	}
+	return resources;
+};
+
+template<typename next_function>
 unordered_map<int, resource> 
 simulated_annealing(vector<int> &unit_ids, unordered_map<int, unit> &units,
 	vector<int> &resource_ids, unordered_map<int, resource> &old_resources,
-	size_t count,  mt19937_64 &mt)
+	double barrier_value, double cooling_rate, next_function& nf, mt19937_64 &mt)
 {
+	//timer<std::chrono::high_resolution_clock> t;
+
 	auto start = std::chrono::system_clock::now();
 	auto old_cost = ef(resource_ids, old_resources);
 
 	auto best_resources = old_resources;
 	auto best_cost = old_cost;
 
-	std::uniform_real_distribution<double long> rf(0, 1);
-
-	for (; count > 0; --count)
+	std::uniform_real_distribution<float> rf(0, 1);
+	double max_temperature = 1.0;
+	double min_temperature = 0.00001;
+	double temperature = max_temperature;
+	
+	while (temperature > min_temperature)
 	{
-		auto new_resources = randomize(unit_ids, units, resource_ids, mt);
+		temperature *= cooling_rate;
+		cout << "best: " << best_cost << "| temp: " << temperature << endl;
+		//t.start();
+		auto new_resources = nf(unit_ids, units, resource_ids, old_resources, mt);
+		//t.finish();
+		//cout << "1. Time elapsed: " << t.count<double>() << endl;
+
+		//t.start();
 		auto new_cost = ef(resource_ids, new_resources);
+		//t.finish();
+		//cout << "2. Time elapsed: " << t.count<double>() << endl;
 
 		if (new_cost < old_cost)
 		{
@@ -167,29 +133,29 @@ simulated_annealing(vector<int> &unit_ids, unordered_map<int, unit> &units,
 			best_cost = new_cost;
 			old_resources = std::move(new_resources);
 			old_cost = std::move(new_cost);
-			cout << "first catch: " << best_cost << endl;
+			//cout << "first catch: " << best_cost << endl;
 			continue;
 		}
 
-		auto t = tf(count);
-		auto delta_e = new_cost - old_cost;
+		auto delta = new_cost - old_cost;
+		auto delta_ratio = delta / old_cost;
+		if (delta_ratio > barrier_value) continue;
 
-		if (delta_e > 10.0 * t) continue;
-
-		if (delta_e <= 0.0 || std::exp(-delta_e / t) > rf(mt))
+		if (std::exp(-(delta_ratio/temperature)) > rf(mt))
 		{
+			cout << "hit" << endl;
 			old_resources = std::move(new_resources);
 			old_cost = std::move(new_cost);
-			cout << "second catch: " << best_cost << endl;
 		}
+
 	}
-	return(best_resources);
+	return best_resources;
 }
 
 int main()
 {
 	mt19937_64 mt(100);
-	//auto start = chrono::high_resolution_clock::now();
+
 	factory_utility factory = factory_utility::factory_utility();
 	
 	unordered_map<int, resource> resources;
@@ -205,35 +171,13 @@ int main()
 	unordered_map<int, unit> units;
 	auto unit_ids = factory.split_orders_to_units(order_ids, orders, units, parts);
 
-	//auto end = chrono::high_resolution_clock::now();
-	//std::chrono::duration<double> diff = end - start;
-	//cout << diff.count() << " s" << endl;
+	resources = random_function(unit_ids, units, resource_ids, resources, mt);
 
-	timer<std::chrono::high_resolution_clock> t;
+	simulated_annealing(unit_ids, units, resource_ids, resources, 0.0, 0.9997, random_function, mt);
+	simulated_annealing(unit_ids, units, resource_ids, resources, 0.2, 0.9997, next_function, mt);
 
-	t.start();
-	resources = randomize(unit_ids, units, resource_ids, mt);
-	t.finish();
-
-	std::cout << "Time elapaed: " << t.count<double>() << '\n';
-
-	t.start();
-	ef(resource_ids, resources);
-	t.finish();
-	std::cout << "Time elapaed: " << t.count<double>() << '\n';
-
-	simulated_annealing(unit_ids, units, resource_ids, resources, 1000, mt);
-	//std::random_device rd;
-	//std::mt19937_64 g(rd());
-	//timer<std::chrono::high_resolution_clock> t;
-
-	//long double root = 1000;//std::atof(argv[1]);
-	//std::size_t count = 1000;//std::atoi(argv[2]);
-
-	//t.start();
-	////root = simulated_annealing(root, count, cost, tf, randomize_schedule<decltype(g)>, g);
-	//t.finish();
-	//cin >> hello;
+	int end;
+	cin >> end;
 	return 1;
 }
 

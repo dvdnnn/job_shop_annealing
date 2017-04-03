@@ -38,7 +38,7 @@ factory_utility::generate_parts(unordered_map<int, part> &parts, mt19937_64 &mt)
 {
 	vector<int> part_ids;
 
-	uniform_real_distribution<float> batch_dis(_BATCH_SIZE_MIN,
+	uniform_int_distribution<short> batch_dis(_BATCH_SIZE_MIN,
 											   _BATCH_SIZE_MAX);
 
 	uniform_int_distribution<int> runtime_dis(_RUNTIME_MIN,
@@ -50,6 +50,7 @@ factory_utility::generate_parts(unordered_map<int, part> &parts, mt19937_64 &mt)
 	uniform_int_distribution<int> possible_machine_dis(1,
 											           _NUMBER_OF_RESOURCES);
 
+	// TODO(david): This should be computed off of the number of resources
 	vector<int> resource_indices({ 0, 1, 2, 3 });
 
 	for (short i = 0; i < _NUMBER_OF_PARTS; ++i)
@@ -64,7 +65,7 @@ factory_utility::generate_parts(unordered_map<int, part> &parts, mt19937_64 &mt)
 		{
 			possible_machines.push_back(resource_indices[i]);
 		}
-		auto p = part(i, unit_size, batch_dis(mt) * unit_size, runtime_dis(mt), possible_machines);
+		auto p = part(i, unit_size, batch_dis(mt), runtime_dis(mt), possible_machines);
 		parts[p.get_id()] = p;
 		part_ids.push_back(p.get_id());
 	}
@@ -102,10 +103,9 @@ factory_utility::split_orders_to_units(vector<int> &order_ids,
 									   unordered_map<int, part> &parts)
 {
 	vector<int> index_container;
-	int iter = 0;
+	short iter(0);
 	for (size_t i = 0; i < order_ids.size(); ++i)
 	{
-		short iter(0);
 		auto ord = orders[order_ids[i]];
 		for (short j = 0; j < (short)(ord.get_quantity() / parts[ord.get_part_id()].get_unit_size()); ++j)
 		{

@@ -115,7 +115,6 @@
     <ClCompile Include="order.cpp" />
     <ClCompile Include="part.cpp" />
     <ClCompile Include="resource.cpp" />
-    <ClCompile Include="simulated_annealing.cpp" />
     <ClCompile Include="unit.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -123,7 +122,6 @@
     <ClInclude Include="order.h" />
     <ClInclude Include="part.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="simulated_annealing.h" />
     <ClInclude Include="timer.h" />
     <ClInclude Include="unit.h" />
   </ItemGroup>

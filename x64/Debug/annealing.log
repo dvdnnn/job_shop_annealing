@@ -1,5 +1,3 @@
 ﻿  annealing.cpp
-e:\annealing\annealing\annealing\annealing.cpp(138): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
-e:\annealing\annealing\annealing\annealing.cpp(174): warning C4244: 'argument': conversion from 'size_t' to 'long double', possible loss of data
   annealing.vcxproj -> E:\annealing\annealing\x64\Debug\annealing.exe
   annealing.vcxproj -> E:\annealing\annealing\x64\Debug\annealing.pdb (Partial PDB)

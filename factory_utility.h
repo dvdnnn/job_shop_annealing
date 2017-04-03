@@ -34,8 +34,8 @@ namespace capacity_planning
 										  unordered_map<int, part> &parts);
 
 	private:
-		const short _NUMBER_OF_PARTS = 10;
-		const short _NUMBER_OF_ORDERS = 1000;
+		const short _NUMBER_OF_PARTS = 5;
+		const short _NUMBER_OF_ORDERS = 20;
 		const short _NUMBER_OF_RESOURCES = 4;
 
 		const float _UNIT_SIZE_MIN = 0.1f;

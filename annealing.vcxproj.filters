@@ -18,9 +18,6 @@
     <ClCompile Include="annealing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="simulated_annealing.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="resource.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -38,9 +35,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="simulated_annealing.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
