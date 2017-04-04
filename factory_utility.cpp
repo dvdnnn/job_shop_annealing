@@ -81,7 +81,7 @@ factory_utility::generate_orders(vector<int> &part_ids, unordered_map<int, order
 	uniform_real_distribution<float> quantity_dis(_QUANTITY_MIN,
 											      _QUANTITY_MAX);
 
-	uniform_int_distribution<int> due_time_dis(5000, MAX_DUE_DATE);
+	uniform_int_distribution<int> due_time_dis(_MIN_DUE_DATE, _MAX_DUE_DATE);
 
 	uniform_int_distribution<int> part_dis(0, _NUMBER_OF_PARTS - 1);
 

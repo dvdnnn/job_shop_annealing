@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <unordered_map>
 
 
 using namespace std;
@@ -72,24 +73,36 @@ auto next_function = [](vector<int> unit_ids, unordered_map<int, unit> &units,
 	vector<int> resource_ids, unordered_map<int, resource> resources, mt19937_64 &mt)
 {
 	uniform_int_distribution<unsigned char> act_dis(0, 1);
-	uniform_int_distribution<int> resource_dis(0, (int)(resource_ids.size() - 1));
-	auto res_1 = resources[resource_ids[resource_dis(mt)]];
-	auto res_2 = resources[resource_ids[resource_dis(mt)]];
-	uniform_int_distribution<unsigned char> unit_1_dis(0, (int)(res_1.units.size() - 1));
-	uniform_int_distribution<unsigned char> unit_2_dis(0, (int)(res_2.units.size() - 1));
-	if (act_dis(mt) == 0)
+
+	uniform_int_distribution<int> res_1_dis(0, (int)(resource_ids.size() - 1));
+	auto res_1 = &resources[resource_ids[res_1_dis(mt)]];
+
+	uniform_int_distribution<unsigned char> unit_1_dis(0, (int)(res_1->units.size() - 1));
+
+	for (short i = 0; i < 1000; ++i)
 	{
-		// swap random units
-		auto unit_1_id = unit_1_dis(mt);
-		auto unit_2_id = unit_2_dis(mt);
-		auto temp = move(res_1.units[unit_1_id]);
-		res_1.units[unit_1_id] = move(res_2.units[unit_2_id]);
-		res_2.units[unit_2_id] = move(temp);
-	}
-	else
-	{
-		// move random unit to random machine
-		res_2.push_back(move(res_1.units[unit_1_dis(mt)]));
+		auto action = act_dis(mt);
+		auto to_move = (res_1->units.begin() + unit_1_dis(mt));
+		uniform_int_distribution<int> res_2_dis(0,
+			(int)((*to_move)->get_part()->get_possible_machines().size() - 1));
+		auto res_2 = &resources[(*to_move)->get_part()->get_possible_machines()[res_2_dis(mt)]];
+
+		uniform_int_distribution<unsigned char> unit_2_dis(0, (int)(res_2->units.size() - 1));
+		if (action == 0)
+		{
+			// swap random units
+			auto unit_2_id = unit_2_dis(mt);
+
+			auto temp = move(*to_move);
+			(*to_move) = move(res_2->units[unit_2_id]);
+			res_2->units[unit_2_id] = move(temp);
+		}
+		else
+		{
+			// move random unit to random machine
+			res_2->units.push_back(move(*to_move));
+			res_1->units.erase(to_move);
+		}
 	}
 	return resources;
 };
@@ -100,7 +113,7 @@ simulated_annealing(vector<int> &unit_ids, unordered_map<int, unit> &units,
 	vector<int> &resource_ids, unordered_map<int, resource> &old_resources,
 	double barrier_value, double cooling_rate, next_function& nf, mt19937_64 &mt)
 {
-	//timer<std::chrono::high_resolution_clock> t;
+	timer<std::chrono::high_resolution_clock> t;
 
 	auto start = std::chrono::system_clock::now();
 	auto old_cost = ef(resource_ids, old_resources);
@@ -115,17 +128,12 @@ simulated_annealing(vector<int> &unit_ids, unordered_map<int, unit> &units,
 	
 	while (temperature > min_temperature)
 	{
+		//t.start();
+		
 		temperature *= cooling_rate;
-		cout << "best: " << best_cost << "| temp: " << temperature << endl;
-		//t.start();
 		auto new_resources = nf(unit_ids, units, resource_ids, old_resources, mt);
-		//t.finish();
-		//cout << "1. Time elapsed: " << t.count<double>() << endl;
 
-		//t.start();
 		auto new_cost = ef(resource_ids, new_resources);
-		//t.finish();
-		//cout << "2. Time elapsed: " << t.count<double>() << endl;
 
 		if (new_cost < old_cost)
 		{
@@ -133,23 +141,71 @@ simulated_annealing(vector<int> &unit_ids, unordered_map<int, unit> &units,
 			best_cost = new_cost;
 			old_resources = std::move(new_resources);
 			old_cost = std::move(new_cost);
-			//cout << "first catch: " << best_cost << endl;
 			continue;
 		}
 
 		auto delta = new_cost - old_cost;
 		auto delta_ratio = delta / old_cost;
+
 		if (delta_ratio > barrier_value) continue;
 
 		if (std::exp(-(delta_ratio/temperature)) > rf(mt))
 		{
-			cout << "hit" << endl;
+			cout << delta_ratio << endl;
 			old_resources = std::move(new_resources);
 			old_cost = std::move(new_cost);
 		}
 
+		//t.finish();
+		//cout << "1. Time elapsed: " << t.count<double>() << endl;
 	}
 	return best_resources;
+}
+
+void print_resources(vector<int> resource_ids, unordered_map<int, resource> resources)
+{
+
+//    "-------------------------"
+//    "|  1  |  2  |  3  |  4  |"
+//    "-------------------------"
+//    "|  3  | 23  | 222 |  2  |"
+//    "-------------------------"
+
+	int max = 0;
+	for (auto res_id : resource_ids)
+	{
+		if (resources[res_id].units.size() > max)
+		{
+			max = resources[res_id].units.size();
+		}
+	}
+
+	cout << "-------------------------" << endl
+		 << "|  1  |  2  |  3  |  4  |" << endl
+		 << "-------------------------" << endl
+		 << "-------------------------" << endl
+		 << "-------------------------" << endl;
+
+	for (int i = 0; i < max; ++i)
+	{
+		string row = "|";
+		for (auto res_id : resource_ids)
+		{
+			if (i < resources[res_id].units.size())
+			{
+				row.append(2 - std::floor(resources[res_id].units[i]->get_part()->get_id() / 10), ' ');
+				row.append(to_string(resources[res_id].units[i]->get_part()->get_id()));
+				row.append(2 - std::ceil(resources[res_id].units[i]->get_part()->get_id() / 10), ' ');
+			}
+			else
+			{
+				row.append(5, ' ');
+			}
+			row.append("|");
+		}
+		cout << row << endl;
+		cout << "-------------------------" << endl;
+	}
 }
 
 int main()
@@ -157,7 +213,7 @@ int main()
 	mt19937_64 mt(100);
 
 	factory_utility factory = factory_utility::factory_utility();
-	
+
 	unordered_map<int, resource> resources;
 	auto resource_ids = factory.generate_resources(resources);
 
@@ -173,8 +229,28 @@ int main()
 
 	resources = random_function(unit_ids, units, resource_ids, resources, mt);
 
-	simulated_annealing(unit_ids, units, resource_ids, resources, 0.0, 0.9997, random_function, mt);
-	simulated_annealing(unit_ids, units, resource_ids, resources, 0.2, 0.9997, next_function, mt);
+
+	timer<std::chrono::high_resolution_clock> t;
+	{
+		t.start("Random step");
+
+		//resources = simulated_annealing(unit_ids, units, resource_ids, resources, 0.0, 0.9997, random_function, mt);
+
+		t.finish();
+		cout << "1. Time elapsed: " << t.count<double>() << endl;
+	}
+
+	{
+		t.start("Next step");
+
+		resources = simulated_annealing(unit_ids, units, resource_ids, resources, 0.2, 0.9997, next_function, mt);
+
+		t.finish();
+		cout << "1. Time elapsed: " << t.count<double>() << endl;
+	}
+
+	cout << ef(resource_ids, resources) << endl;
+	print_resources(resource_ids, resources);
 
 	int end;
 	cin >> end;

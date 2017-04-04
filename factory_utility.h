@@ -50,8 +50,15 @@ namespace capacity_planning
 		const float _QUANTITY_MIN = 1.0f;
 		const float _QUANTITY_MAX = 20.0f;
 
+#define MINUTE 1
+#define HOUR (60 * MINUTE)
+#define DAY (24 * HOUR)
+#define WEEK (7 * DAY)
+
+#define MIN_DUE_DATE (WEEK)
+#define MAX_DUE_DATE (3 * WEEK)
 		// Time is relative to the start of the schedule
-		#define MAX_DUE_DATE 60*24*7*3
+		const int _MIN_DUE_DATE = MIN_DUE_DATE;
 		const int _MAX_DUE_DATE = MAX_DUE_DATE;
 	};
 
